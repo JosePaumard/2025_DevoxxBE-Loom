@@ -37,10 +37,15 @@ public class A_WeatherQuery {
             var subTask1 = scope.fork(queryGlobalWeather);
             var subTask2 = scope.fork(queryStarWeather);
             var subTask3 = scope.fork(queryPlanetWeather);
+            var subTask4 = scope.fork(failingQuery);
 
-            scope.join();
+            try {
+                scope.join();
+            } catch (StructuredTaskScope.FailedException _) {
 
-            Stream.of(subTask1, subTask2, subTask3)
+            }
+
+            Stream.of(subTask1, subTask2, subTask3, subTask4)
                   .forEach(subTask -> {
                       IO.println(subTask.state());
                       if (subTask.state() == StructuredTaskScope.Subtask.State.SUCCESS) {
