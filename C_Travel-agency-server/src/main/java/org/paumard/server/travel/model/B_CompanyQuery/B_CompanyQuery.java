@@ -3,9 +3,15 @@ package org.paumard.server.travel.model.B_CompanyQuery;
 
 import org.paumard.server.travel.model.city.Cities;
 import org.paumard.server.travel.model.company.Companies;
+import org.paumard.server.travel.model.response.CompanyServerResponse;
+import org.paumard.server.travel.model.response.CompanyServerResponse.MultilegFlight;
+import org.paumard.server.travel.model.response.CompanyServerResponse.NoFlight;
+import org.paumard.server.travel.model.response.CompanyServerResponse.SimpleFlight;
 
+import java.util.Comparator;
+import java.util.List;
 import java.util.concurrent.StructuredTaskScope;
-import java.util.stream.Collectors;
+import java.util.concurrent.StructuredTaskScope.Subtask;
 
 public class B_CompanyQuery {
 
@@ -25,31 +31,38 @@ public class B_CompanyQuery {
         var tasks = companies.companies().stream()
               .map(company -> CompanyQueryBuilder.from(company)
                     .toFlyFrom(atlanta).to(chicago))
-              .collect(Collectors.toList());
-        tasks.add(() -> {
-            Thread.sleep(800);
-            throw new RuntimeException("Failing query");
-        });
+              .toList();
+//        tasks.add(() -> {
+//            Thread.sleep(800);
+//            throw new RuntimeException("Failing query");
+//        });
 
-        try (var scope = StructuredTaskScope.open()) {
+        try (var scope = StructuredTaskScope.open(
+              StructuredTaskScope.Joiner.awaitAll()
+        )) {
 
             var subTasks = tasks.stream()
                   .map(scope::fork)
                   .toList();
 
-            try {
-                scope.join();
-            } catch (StructuredTaskScope.FailedException _) {
-                IO.println("Failed exception caught");
-            }
+            scope.join();
 
-            subTasks.forEach(subTask -> {
-                IO.println(subTask.state());
-                if (subTask.state() == StructuredTaskScope.Subtask.State.SUCCESS) {
-                    IO.println(subTask.get());
-                }
-            });
-
+            var bestPrice = bestPriceFrom(subTasks);
+            IO.println(bestPrice);
         }
+    }
+
+    private static Integer bestPriceFrom(List<Subtask<CompanyServerResponse>> subTasks) {
+        return subTasks.stream().map(Subtask::get)
+              .<Integer>mapMulti((response, downstream) -> {
+                  switch (response) {
+                      case SimpleFlight(_, int price) -> downstream.accept(price);
+                      case MultilegFlight(_, int price) -> downstream.accept(price);
+                      case NoFlight _, CompanyServerResponse.Error _ -> {
+                      }
+                  }
+              })
+              .min(Comparator.naturalOrder())
+              .orElseThrow();
     }
 }
