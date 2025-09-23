@@ -5,6 +5,7 @@ import org.paumard.server.travel.model.city.Cities;
 import org.paumard.server.travel.model.company.Companies;
 
 import java.util.concurrent.StructuredTaskScope;
+import java.util.stream.Collectors;
 
 public class B_CompanyQuery {
 
@@ -24,7 +25,11 @@ public class B_CompanyQuery {
         var tasks = companies.companies().stream()
               .map(company -> CompanyQueryBuilder.from(company)
                     .toFlyFrom(atlanta).to(chicago))
-              .toList();
+              .collect(Collectors.toList());
+        tasks.add(() -> {
+            Thread.sleep(800);
+            throw new RuntimeException("Failing query");
+        });
 
         try (var scope = StructuredTaskScope.open()) {
 
@@ -32,7 +37,11 @@ public class B_CompanyQuery {
                   .map(scope::fork)
                   .toList();
 
-            scope.join();
+            try {
+                scope.join();
+            } catch (StructuredTaskScope.FailedException _) {
+                IO.println("Failed exception caught");
+            }
 
             subTasks.forEach(subTask -> {
                 IO.println(subTask.state());
