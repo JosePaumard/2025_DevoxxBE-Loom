@@ -28,22 +28,20 @@ public class A_WeatherQuery {
               WeatherQueryBuilder.from(planetWeather).forCity(atlanta);
         Callable<WeatherResponse> failingQuery =
               () -> {
-                  Thread.sleep(800);
+                  Thread.sleep(10);
                   throw new RuntimeException("Failing query");
               };
 
-        try (var scope = StructuredTaskScope.open()) {
+        try (var scope = StructuredTaskScope.open(
+              StructuredTaskScope.Joiner.anySuccessfulResultOrThrow()
+        )) {
 
             var subTask1 = scope.fork(queryGlobalWeather);
             var subTask2 = scope.fork(queryStarWeather);
             var subTask3 = scope.fork(queryPlanetWeather);
             var subTask4 = scope.fork(failingQuery);
 
-            try {
-                scope.join();
-            } catch (StructuredTaskScope.FailedException _) {
-
-            }
+            var result = scope.join();
 
             Stream.of(subTask1, subTask2, subTask3, subTask4)
                   .forEach(subTask -> {
@@ -52,6 +50,8 @@ public class A_WeatherQuery {
                           IO.println(subTask.get());
                       }
                   });
+
+            IO.println("Result = " + result);
         }
     }
 }
