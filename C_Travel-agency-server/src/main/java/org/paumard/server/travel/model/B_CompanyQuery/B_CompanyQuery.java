@@ -3,6 +3,8 @@ package org.paumard.server.travel.model.B_CompanyQuery;
 
 import org.paumard.server.travel.model.city.Cities;
 import org.paumard.server.travel.model.company.Companies;
+import org.paumard.server.travel.model.company.Company;
+import org.paumard.server.travel.model.flight.Flight;
 import org.paumard.server.travel.model.response.CompanyServerResponse;
 import org.paumard.server.travel.model.response.CompanyServerResponse.MultilegFlight;
 import org.paumard.server.travel.model.response.CompanyServerResponse.NoFlight;
@@ -10,10 +12,27 @@ import org.paumard.server.travel.model.response.CompanyServerResponse.SimpleFlig
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.concurrent.Callable;
 import java.util.concurrent.StructuredTaskScope;
+import java.util.concurrent.StructuredTaskScope.Joiner;
 import java.util.concurrent.StructuredTaskScope.Subtask;
 
 public class B_CompanyQuery {
+
+    record CompanyTask(
+          Company company,
+          Callable<CompanyServerResponse> task) {
+    }
+
+    record CompanySubTask(
+          Company company,
+          Subtask<CompanyServerResponse> subtask) {
+    }
+
+    record CompanyFlightPrice(
+          Company company,
+          Flight flight, int price) {
+    }
 
     void main() throws Exception {
         var cities = Cities.read();
@@ -28,9 +47,14 @@ public class B_CompanyQuery {
         var atlanta = cities.byName("Atlanta");
         var chicago = cities.byName("Chicago");
 
-        var tasks = companies.companies().stream()
-              .map(company -> CompanyQueryBuilder.from(company)
-                    .toFlyFrom(atlanta).to(chicago))
+        var phoenix = cities.byName("Phoenix");
+        var philadelphia = cities.byName("Philadelphia");
+
+        var companyTasks = companies.companies().stream()
+              .map(company ->
+                    new CompanyTask(company,
+                          CompanyQueryBuilder.from(company)
+                                .toFlyFrom(phoenix).to(philadelphia)))
               .toList();
 //        tasks.add(() -> {
 //            Thread.sleep(800);
@@ -38,31 +62,40 @@ public class B_CompanyQuery {
 //        });
 
         try (var scope = StructuredTaskScope.open(
-              StructuredTaskScope.Joiner.awaitAll()
+              Joiner.<CompanyServerResponse>awaitAll()
         )) {
 
-            var subTasks = tasks.stream()
-                  .map(scope::fork)
+            var companySubtasks = companyTasks.stream()
+                  .map(task ->
+                        new CompanySubTask(
+                              task.company(),
+                              scope.fork(task.task())))
                   .toList();
 
             scope.join();
 
-            var bestPrice = bestPriceFrom(subTasks);
-            IO.println(bestPrice);
+            var bestCompanyFlightPrice = getBestCompanyFlightPrice(companySubtasks);
+            IO.println(bestCompanyFlightPrice);
         }
     }
 
-    private static Integer bestPriceFrom(List<Subtask<CompanyServerResponse>> subTasks) {
-        return subTasks.stream().map(Subtask::get)
-              .<Integer>mapMulti((response, downstream) -> {
-                  switch (response) {
-                      case SimpleFlight(_, int price) -> downstream.accept(price);
-                      case MultilegFlight(_, int price) -> downstream.accept(price);
+    private static CompanyFlightPrice getBestCompanyFlightPrice(List<CompanySubTask> companySubtasks) {
+        return companySubtasks.stream()
+              .<CompanyFlightPrice>mapMulti((companySubtask, downstream) -> {
+                  switch (companySubtask.subtask().get()) {
+                      case SimpleFlight(Flight.SimpleFlight flight, int price) ->
+                            downstream.accept(new CompanyFlightPrice(
+                                  companySubtask.company(),
+                                  flight, price));
+                      case MultilegFlight(Flight.MultilegFlight flight, int price) ->
+                            downstream.accept(new CompanyFlightPrice(
+                                  companySubtask.company(),
+                                  flight, price));
                       case NoFlight _, CompanyServerResponse.Error _ -> {
                       }
                   }
               })
-              .min(Comparator.naturalOrder())
+              .min(Comparator.comparing(CompanyFlightPrice::price))
               .orElseThrow();
     }
 }
