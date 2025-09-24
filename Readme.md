@@ -1,7 +1,6 @@
 Devoxx BE 2025 Loom Demo
 ========================
 
-
 # Running the servers
 
 1. You need to adjust the parameters in the [server.properties](server.properties) file to be able to run the servers.

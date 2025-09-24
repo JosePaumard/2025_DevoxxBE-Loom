@@ -2,6 +2,7 @@ package org.paumard.server.travel.model.B_CompanyQuery;
 
 
 import org.paumard.server.travel.model.city.Cities;
+import org.paumard.server.travel.model.city.City;
 import org.paumard.server.travel.model.company.Companies;
 import org.paumard.server.travel.model.company.Company;
 import org.paumard.server.travel.model.flight.Flight;
@@ -36,19 +37,24 @@ public class B_CompanyQuery {
 
     void main() throws Exception {
         var cities = Cities.read();
-        var companies = Companies.readCompanies();
-
-        var airPenguin = companies.companies().get(0);
-        var norwegianParrots = companies.companies().get(1);
-        var gammaAirlines = companies.companies().get(2);
-        var crustyAlbatros = companies.companies().get(3);
-        var diamondAirlines = companies.companies().get(4);
 
         var atlanta = cities.byName("Atlanta");
         var chicago = cities.byName("Chicago");
 
         var phoenix = cities.byName("Phoenix");
         var philadelphia = cities.byName("Philadelphia");
+
+        var bestCompanyFlightPrice = queryFlightPrice(phoenix, philadelphia);
+        IO.println(bestCompanyFlightPrice);
+    }
+
+    private static CompanyFlightPrice queryFlightPrice(City phoenix, City philadelphia) throws InterruptedException {
+        var companies = Companies.readCompanies();
+        var airPenguin = companies.companies().get(0);
+        var norwegianParrots = companies.companies().get(1);
+        var gammaAirlines = companies.companies().get(2);
+        var crustyAlbatros = companies.companies().get(3);
+        var diamondAirlines = companies.companies().get(4);
 
         var companyTasks = companies.companies().stream()
               .map(company ->
@@ -75,7 +81,7 @@ public class B_CompanyQuery {
             scope.join();
 
             var bestCompanyFlightPrice = getBestCompanyFlightPrice(companySubtasks);
-            IO.println(bestCompanyFlightPrice);
+            return bestCompanyFlightPrice;
         }
     }
 
