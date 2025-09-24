@@ -1,7 +1,7 @@
 package org.paumard.server.travel.model.B_CompanyQuery;
 
 
-import org.paumard.server.travel.model.B_CompanyQuery.model.CompanyFlightPrice;
+import org.paumard.server.travel.model.response.CompanyFlightPrice;
 import org.paumard.server.travel.model.B_CompanyQuery.model.CompanySubTask;
 import org.paumard.server.travel.model.B_CompanyQuery.model.CompanyTask;
 import org.paumard.server.travel.model.city.Cities;

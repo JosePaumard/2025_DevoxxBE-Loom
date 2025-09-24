@@ -9,8 +9,6 @@ import org.paumard.server.travel.model.weather.WeatherAgencies;
 import java.util.concurrent.Callable;
 import java.util.concurrent.StructuredTaskScope;
 import java.util.concurrent.StructuredTaskScope.Joiner;
-import java.util.function.BinaryOperator;
-import java.util.stream.Stream;
 
 public class A_WeatherQuery {
 
@@ -23,7 +21,7 @@ public class A_WeatherQuery {
         IO.println(weatherForecast);
     }
 
-    public static WeatherResponse queryWeatherForecastFor(City city) throws InterruptedException {
+    public static WeatherResponse queryWeatherForecastFor(City city) {
 
         var agencies = WeatherAgencies.read();
 
@@ -55,6 +53,9 @@ public class A_WeatherQuery {
             var result = scope.join();
 
             return result;
+        } catch (InterruptedException _) {
+            IO.println("Weather server interrupted");
         }
+        return null;
     }
 }
