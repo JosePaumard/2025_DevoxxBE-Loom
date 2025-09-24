@@ -1,10 +1,12 @@
 package org.paumard.server.travel.model.B_CompanyQuery;
 
 
+import org.paumard.server.travel.model.B_CompanyQuery.model.CompanyFlightPrice;
+import org.paumard.server.travel.model.B_CompanyQuery.model.CompanySubTask;
+import org.paumard.server.travel.model.B_CompanyQuery.model.CompanyTask;
 import org.paumard.server.travel.model.city.Cities;
 import org.paumard.server.travel.model.city.City;
 import org.paumard.server.travel.model.company.Companies;
-import org.paumard.server.travel.model.company.Company;
 import org.paumard.server.travel.model.flight.Flight;
 import org.paumard.server.travel.model.response.CompanyServerResponse;
 import org.paumard.server.travel.model.response.CompanyServerResponse.MultilegFlight;
@@ -13,27 +15,10 @@ import org.paumard.server.travel.model.response.CompanyServerResponse.SimpleFlig
 
 import java.util.Comparator;
 import java.util.List;
-import java.util.concurrent.Callable;
 import java.util.concurrent.StructuredTaskScope;
 import java.util.concurrent.StructuredTaskScope.Joiner;
-import java.util.concurrent.StructuredTaskScope.Subtask;
 
 public class B_CompanyQuery {
-
-    record CompanyTask(
-          Company company,
-          Callable<CompanyServerResponse> task) {
-    }
-
-    record CompanySubTask(
-          Company company,
-          Subtask<CompanyServerResponse> subtask) {
-    }
-
-    record CompanyFlightPrice(
-          Company company,
-          Flight flight, int price) {
-    }
 
     void main() throws Exception {
         var cities = Cities.read();
@@ -48,7 +33,7 @@ public class B_CompanyQuery {
         IO.println(bestCompanyFlightPrice);
     }
 
-    private static CompanyFlightPrice queryFlightPrice(City phoenix, City philadelphia) throws InterruptedException {
+    public static CompanyFlightPrice queryFlightPrice(City phoenix, City philadelphia) throws InterruptedException {
         var companies = Companies.readCompanies();
         var airPenguin = companies.companies().get(0);
         var norwegianParrots = companies.companies().get(1);
