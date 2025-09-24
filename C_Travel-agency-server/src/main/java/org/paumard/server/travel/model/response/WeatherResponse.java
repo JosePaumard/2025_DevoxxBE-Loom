@@ -4,7 +4,7 @@ import org.paumard.server.travel.model.weather.Weather;
 import org.paumard.server.travel.model.weather.WeatherAgency;
 
 public sealed interface WeatherResponse
-    extends TravelComponent{
+    extends TravelComponent {
 
     record Ok(Weather weather) implements WeatherResponse {}
     record Error(WeatherAgency weatherAgency) implements WeatherResponse {}

@@ -6,11 +6,14 @@ import org.paumard.server.travel.model.weather.Weather;
 
 public sealed interface Travel {
 
-    record TravelWithWeather(Company company, Flight flight, int price, Weather weather)
-          implements Travel {
-    }
+    record TravelWithWeather(
+          Company company, Flight flight, int price,
+          Weather weather
+    )
+          implements Travel {}
 
-    record TravelNoWeather(Company company, Flight flight, int price)
-          implements Travel {
-    }
+    record TravelNoWeather(
+          Company company, Flight flight, int price
+    )
+          implements Travel {}
 }

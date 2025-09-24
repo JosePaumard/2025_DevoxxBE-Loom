@@ -2,10 +2,10 @@ package org.paumard.server.travel.model.C_TravelAgencyQuery;
 
 import org.paumard.server.travel.model.A_WeatherQuery.A_WeatherQuery;
 import org.paumard.server.travel.model.B_CompanyQuery.B_CompanyQuery;
-import org.paumard.server.travel.model.response.CompanyFlightPrice;
 import org.paumard.server.travel.model.C_TravelAgencyQuery.model.Travel;
 import org.paumard.server.travel.model.city.Cities;
 import org.paumard.server.travel.model.city.City;
+import org.paumard.server.travel.model.response.CompanyFlightPrice;
 import org.paumard.server.travel.model.response.TravelComponent;
 import org.paumard.server.travel.model.response.WeatherResponse;
 import org.paumard.server.travel.model.weather.Weather;
@@ -18,6 +18,8 @@ import java.util.function.Predicate;
 
 public class C_TravelAgencyQuery {
 
+    public static ScopedValue<String> LICENCE_KEY = ScopedValue.newInstance();
+
     void main() throws InterruptedException {
 
         var cities = Cities.read();
@@ -28,7 +30,10 @@ public class C_TravelAgencyQuery {
         var phoenix = cities.byName("Phoenix");
         var philadelphia = cities.byName("Philadelphia");
 
-        var travel = queryTravel(phoenix, philadelphia);
+        var travel =
+              ScopedValue.where(LICENCE_KEY, "Valid key")
+                    .call(() -> queryTravel(phoenix, philadelphia));
+
         IO.println(travel);
     }
 
