@@ -1,16 +1,18 @@
 package org.paumard.server.weather.model;
 
 
-import static org.paumard.server.weather.WeatherServer.random;
+import java.util.List;
+import java.util.Objects;
 
-public record Weather(String weather, String agency) {
+public record Weather(Type weather, String agency) {
+  public Weather {
+    Objects.requireNonNull(weather);
+    Objects.requireNonNull(agency);
+  }
 
-    enum Type {
-        Sunny, Cloudy, Rainy;
-    }
+  public enum Type {
+    Sunny, Cloudy, Rainy;
+  }
 
-    public static Weather randomFor(String agency) {
-        Type weatherType = Type.values()[random.nextInt(0, Type.values().length)];
-        return new Weather(weatherType.name(), agency);
-    }
+  public static final List<Type> TYPES = List.of(Type.values());
 }

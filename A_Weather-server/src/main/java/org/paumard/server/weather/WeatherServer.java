@@ -7,28 +7,64 @@ import io.helidon.http.media.jsonp.JsonpSupport;
 import io.helidon.webserver.WebServer;
 import io.helidon.webserver.http.HttpRouting;
 import io.helidon.webserver.staticcontent.StaticContentFeature;
-import org.paumard.server.weather.model.Cities;
-import org.paumard.server.weather.model.WeatherAgencies;
+import org.paumard.server.weather.model.City;
+import org.paumard.server.weather.model.Parser;
+import org.paumard.server.weather.model.Weather;
+import org.paumard.server.weather.model.WeatherAgency;
 
 import java.io.IOException;
 import java.net.InetAddress;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Properties;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Random;
 
 public class WeatherServer {
 
-    public static Random random = new Random();
+    private static final Random RANDOM = new Random();
 
-    void main() throws IOException {
+    private static void sleepFor(int average, int dispersion) throws InterruptedException {
+        Thread.sleep(RANDOM.nextInt(average - dispersion, average + dispersion));
+    }
 
-        Cities.readCitiesFrom("us-cities.txt");
-        WeatherAgencies.readAgenciesFrom("weather-agencies.txt");
+    public static Weather.Type randomWeawerType() {
+        return Weather.TYPES.get(RANDOM.nextInt(0, Weather.TYPES.size()));
+    }
 
-        var properties = readPropertiesFrom("server.properties");
-        var WEATHER_SERVER_PORT = Integer.parseInt(properties.getProperty("weather-agencies.port"));
-        var WEATHER_SERVER_HOST = properties.getProperty("weather-agencies.host");
+    private static void registerCities(HttpRouting.Builder routingBuilder, List<City> cities) {
+        routingBuilder.get("/cities", (_, response) -> {
+            response.send(cities.stream()
+                .sorted(Comparator.comparing(City::name))
+                .toList());
+        });
+    }
+
+    public record WeatherAgencyDTO(String name, String tag) { }
+
+    private static void registerWeatherAgencies(HttpRouting.Builder routingBuilder, List<WeatherAgency> weatherAgencies) {
+        routingBuilder.get("/weather-agencies", (_, response) -> {
+            response.send(weatherAgencies.stream()
+                .map(agency -> new WeatherAgencyDTO(agency.name(), agency.tag()))
+                .toList());
+        });
+    }
+
+    private static void registerEachWeatherAgency(HttpRouting.Builder routingBuilder, List<WeatherAgency> weatherAgencies) {
+        for (var agency : weatherAgencies) {
+            routingBuilder.post("/weather/" + agency.tag(), (request, response) -> {
+                var city = request.content().as(City.class);
+                WeatherServer.sleepFor(agency.average(), agency.dispersion());
+                response.send(new Weather(randomWeawerType(), agency.name()));
+            });
+        }
+    }
+
+    static void main() throws IOException {
+
+        var cities = Parser.parse(Path.of("files", "us-cities.txt"), City::parseLine);
+        var agencies = Parser.parse(Path.of("files", "weather-agencies.txt"), WeatherAgency::parseLine);
+
+        var config = Configuration.parse(Path.of("server.properties"));
 
         var routingBuilder = HttpRouting.builder();
 
@@ -36,14 +72,15 @@ public class WeatherServer {
             res.send("Current thread: " + Thread.currentThread());
         });
 
-        Cities.registerCities(routingBuilder);
+        registerCities(routingBuilder, cities);
 
-        WeatherAgencies.registerWeatherAgencies(routingBuilder);
-        WeatherAgencies.registerWeatherHandlers(routingBuilder);
+        registerWeatherAgencies(routingBuilder, agencies);
+        registerEachWeatherAgency(routingBuilder, agencies);
 
-        WebServer webServer = WebServer.builder()
+        var webServer = WebServer.builder()
                 .address(InetAddress.getLocalHost())
-                .port(WEATHER_SERVER_PORT).host(WEATHER_SERVER_HOST)
+                 .host(config.host())
+                .port(config.port())
                 .addFeature(
                         StaticContentFeature.builder()
                                 .addClasspath(b -> b.location("/static-content").welcome("index.html").context("/"))
@@ -57,27 +94,7 @@ public class WeatherServer {
                 .build();
 
         webServer.start();
-
-        while (true) {
-        }
     }
 
-    private static Properties readPropertiesFrom(String fileName) {
-        var properties = new Properties();
-        try (var reader = Files.newBufferedReader(Path.of(fileName))) {
-            properties.load(reader);
-            return properties;
-        } catch (IOException e) {
-            System.out.println("Error reading properties file " + e.getMessage());
-            throw new RuntimeException(e);
-        }
-    }
 
-    public static void sleepFor(int average, int dispersion) {
-        try {
-            Thread.sleep(random.nextInt(average - dispersion, average + dispersion));
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-    }
 }

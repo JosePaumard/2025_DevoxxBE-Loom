@@ -1,5 +1,5 @@
 package org.paumard.loom.vthreads;
-
+/*
 import jdk.internal.vm.Continuation;
 import jdk.internal.vm.ContinuationScope;
 
@@ -24,4 +24,4 @@ public class C_Continuation {
         continuation.run();
         System.out.println("Back again");
     }
-}
+}*/
