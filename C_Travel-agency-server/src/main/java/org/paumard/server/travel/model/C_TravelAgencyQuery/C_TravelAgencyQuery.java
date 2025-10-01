@@ -22,48 +22,48 @@ import java.util.concurrent.StructuredTaskScope.Subtask.State;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
 
-public class C_TravelAgencyQuery {
+public final class C_TravelAgencyQuery {
 
-    private static final Random RANDOM = new Random();
+  private static final Random RANDOM = new Random();
 
-    private static final ScopedValue<String> LICENCE_KEY = ScopedValue.newInstance();
+  private static final ScopedValue<String> LICENCE_KEY = ScopedValue.newInstance();
 
-    public static Optional<Travel> travelQuery(List<WeatherAgency> agencies, List<Company> companies, City from, City to) throws InterruptedException {
-        try (var scope = StructuredTaskScope.open(
-            Joiner.allUntil(subtask -> switch (subtask.state()) {
-                case UNAVAILABLE, FAILED -> false;
-                case SUCCESS -> subtask.get() instanceof Optional<?> optional &&
-                    optional.isPresent() &&
-                    optional.orElseThrow() instanceof CompanyFlightPrice;
-            }))) {
+  public static Optional<Travel> travelQuery(List<WeatherAgency> agencies, List<Company> companies, City from, City to) throws InterruptedException {
+    try (var scope = StructuredTaskScope.open(
+        Joiner.allUntil(subtask -> switch (subtask.state()) {
+          case UNAVAILABLE, FAILED -> false;
+          case SUCCESS -> subtask.get() instanceof Optional<?> optional &&
+              optional.isPresent() &&
+              optional.orElseThrow() instanceof CompanyFlightPrice;
+        }))) {
 
-            var weatherTask = scope.fork(() -> A_WeatherQuery.queryWeatherForecastFor(agencies, to));
-            var flightPriceTask = scope.fork(() -> B_CompanyQuery.queryBestFlightPrice(companies, from, to));
+      var weatherTask = scope.fork(() -> A_WeatherQuery.queryWeatherForecastFor(agencies, to));
+      var flightPriceTask = scope.fork(() -> B_CompanyQuery.queryBestFlightPrice(companies, from, to));
 
-            scope.join();
+      scope.join();
 
-            var weatherOpt =
-                weatherTask.state() == State.SUCCESS ? weatherTask.get() : Optional.<Weather>empty();
-            return flightPriceTask.get()
-                .map(flightPrice ->
-                    new Travel(flightPrice.company().name(), flightPrice.flight(), flightPrice.price(), weatherOpt));
-        }
+      var weatherOpt =
+          weatherTask.state() == State.SUCCESS ? weatherTask.get() : Optional.<Weather>empty();
+      return flightPriceTask.get()
+          .map(flightPrice ->
+              new Travel(flightPrice.company().name(), flightPrice.flight(), flightPrice.price(), weatherOpt));
     }
+  }
 
-    static void main() throws InterruptedException, IOException {
-        var cities = Parser.parse(Path.of("files", "us-cities.txt"), City::parseLine);
-        var cityByName = cities.stream().collect(toMap(City::name, identity()));
-        var agencies = Parser.parse(Path.of("files", "weather-agencies.txt"), WeatherAgency::parseLine);
-        var companies = Parser.parse(Path.of("files", "companies.txt"),
-            line -> Company.parseLine(line, cities, flightAvailabilityRate -> RANDOM.nextInt(0, 100) <= flightAvailabilityRate));
+  static void main() throws InterruptedException, IOException {
+    var cities = Parser.parse(Path.of("files", "us-cities.txt"), City::parseLine);
+    var cityByName = cities.stream().collect(toMap(City::name, identity()));
+    var agencies = Parser.parse(Path.of("files", "weather-agencies.txt"), WeatherAgency::parseLine);
+    var companies = Parser.parse(Path.of("files", "companies.txt"),
+        line -> Company.parseLine(line, cities, flightAvailabilityRate -> RANDOM.nextInt(0, 100) <= flightAvailabilityRate));
 
-        var atlanta = cityByName.get("Atlanta");
-        var chicago = cityByName.get("Chicago");
+    var atlanta = cityByName.get("Atlanta");
+    var chicago = cityByName.get("Chicago");
 
-        var phoenix = cityByName.get("Phoenix");
-        var philadelphia = cityByName.get("Philadelphia");
+    var phoenix = cityByName.get("Phoenix");
+    var philadelphia = cityByName.get("Philadelphia");
 
-        IO.println(travelQuery(agencies, companies, atlanta, chicago));
-        //IO.println(travelQuery(agencies, companies, phoenix, philadelphia));
-    }
+    IO.println(travelQuery(agencies, companies, atlanta, chicago));
+    //IO.println(travelQuery(agencies, companies, phoenix, philadelphia));
+  }
 }

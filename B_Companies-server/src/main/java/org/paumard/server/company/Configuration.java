@@ -20,17 +20,18 @@ public final class Configuration {
     }
   }
 
-  public record Conf(String host, int port) {}
+  public record Conf(String host, int port) {
+  }
 
   public Conf weatherAgency() {
-      var host = properties.getProperty("weather-agencies.host");
-      var port = Integer.parseInt(properties.getProperty("weather-agencies.port"));
-      return new Conf(host, port);
+    var host = properties.getProperty("weather-agencies.host");
+    var port = Integer.parseInt(properties.getProperty("weather-agencies.port"));
+    return new Conf(host, port);
   }
 
   public Conf company() {
-      var host = properties.getProperty("companies.host");
-      var port = Integer.parseInt(properties.getProperty("companies.port"));
-      return new Conf(host, port);
+    var host = properties.getProperty("companies.host");
+    var port = Integer.parseInt(properties.getProperty("companies.port"));
+    return new Conf(host, port);
   }
 }
