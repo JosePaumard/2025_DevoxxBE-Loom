@@ -64,7 +64,7 @@ public class WeatherServer {
         var cities = Parser.parse(Path.of("files", "us-cities.txt"), City::parseLine);
         var agencies = Parser.parse(Path.of("files", "weather-agencies.txt"), WeatherAgency::parseLine);
 
-        var config = Configuration.parse(Path.of("server.properties"));
+        var config = Configuration.parse(Path.of("server.properties")).weatherAgency();
 
         var routingBuilder = HttpRouting.builder();
 
