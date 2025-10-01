@@ -1,61 +1,70 @@
 package org.paumard.server.travel.model.A_WeatherQuery;
 
 
-import org.paumard.server.travel.model.city.Cities;
-import org.paumard.server.travel.model.city.City;
-import org.paumard.server.travel.model.response.WeatherResponse;
-import org.paumard.server.travel.model.weather.WeatherAgencies;
+import io.helidon.http.Status;
+import io.helidon.webclient.api.WebClient;
+import org.paumard.server.travel.model.City;
+import org.paumard.server.travel.model.Parser;
+import org.paumard.server.travel.model.Weather;
+import org.paumard.server.travel.model.WeatherAgency;
+import org.paumard.server.travel.Client;
 
-import java.util.concurrent.Callable;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.StructuredTaskScope;
 import java.util.concurrent.StructuredTaskScope.Joiner;
 
+import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toMap;
+
 public class A_WeatherQuery {
 
-    void main() throws Exception {
-        var cities = Cities.read();
-
-        var atlanta = cities.byName("Atlanta");
-
-        var weatherForecast = queryWeatherForecastFor(atlanta);
-        IO.println(weatherForecast);
+    private static Optional<Weather> weatherQuery(WeatherAgency agency, City city) {
+        try (var response = WebClient.builder()
+            .baseUri(Client.getWeatherServerURI())
+            .build()
+            .post("/weather/" + agency.tag())
+            .submit(city)) {
+            if (response.status() == Status.OK_200) {
+                var weather = response.as(Weather.class);
+                return Optional.of(weather);
+            }
+            return Optional.empty();
+        }
     }
 
-    public static WeatherResponse queryWeatherForecastFor(City city) {
+    public static Optional<Weather> queryWeatherForecastFor(List<WeatherAgency> agencies, City city) throws InterruptedException {
+        try (var scope = StructuredTaskScope.open(
+            Joiner.<Optional<Weather>>anySuccessfulResultOrThrow())) {
 
-        var agencies = WeatherAgencies.read();
+            for(WeatherAgency agency : agencies) {
+                scope.fork(() -> weatherQuery(agency, city));
+            }
 
-        var globalWeather = agencies.first();
+            scope.fork(() -> {
+                Thread.sleep(10);
+                throw new RuntimeException("Failing query");
+            });
+
+            return scope.join();
+        }
+    }
+
+    static void main() throws InterruptedException, IOException {
+        var cities = Parser.parse(Path.of("files", "us-cities.txt"), City::parseLine);
+        var cityByName = cities.stream().collect(toMap(City::name, identity()));
+        var agencies = Parser.parse(Path.of("files", "weather-agencies.txt"), WeatherAgency::parseLine);
+
+        var city = cityByName.get("Atlanta");
+
+        var globalWeather = agencies.get(0);
         var starWeather = agencies.get(1);
         var planetWeather = agencies.get(2);
+        var trustedAgencies = List.of(globalWeather, starWeather, planetWeather);
 
-        Callable<WeatherResponse> queryGlobalWeather =
-              WeatherQueryBuilder.from(globalWeather).forCity(city);
-        Callable<WeatherResponse> queryStarWeather =
-              WeatherQueryBuilder.from(starWeather).forCity(city);
-        Callable<WeatherResponse> queryPlanetWeather =
-              WeatherQueryBuilder.from(planetWeather).forCity(city);
-        Callable<WeatherResponse> failingQuery =
-              () -> {
-                  Thread.sleep(10);
-                  throw new RuntimeException("Failing query");
-              };
-
-        try (var scope = StructuredTaskScope.open(
-              Joiner.<WeatherResponse>anySuccessfulResultOrThrow()
-        )) {
-
-            scope.fork(queryGlobalWeather);
-            scope.fork(queryStarWeather);
-            scope.fork(queryPlanetWeather);
-            scope.fork(failingQuery);
-
-            var result = scope.join();
-
-            return result;
-        } catch (InterruptedException _) {
-            IO.println("Weather server interrupted");
-        }
-        return null;
+        var weatherOpt = queryWeatherForecastFor(trustedAgencies, city);
+        IO.println(weatherOpt.orElseThrow());
     }
 }

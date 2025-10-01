@@ -2,92 +2,64 @@ package org.paumard.server.travel.model.C_TravelAgencyQuery;
 
 import org.paumard.server.travel.model.A_WeatherQuery.A_WeatherQuery;
 import org.paumard.server.travel.model.B_CompanyQuery.B_CompanyQuery;
-import org.paumard.server.travel.model.C_TravelAgencyQuery.model.Travel;
-import org.paumard.server.travel.model.city.Cities;
-import org.paumard.server.travel.model.city.City;
-import org.paumard.server.travel.model.response.CompanyFlightPrice;
-import org.paumard.server.travel.model.response.TravelComponent;
-import org.paumard.server.travel.model.response.WeatherResponse;
-import org.paumard.server.travel.model.weather.Weather;
+import org.paumard.server.travel.model.City;
+import org.paumard.server.travel.model.Company;
+import org.paumard.server.travel.model.CompanyFlightPrice;
+import org.paumard.server.travel.model.Parser;
+import org.paumard.server.travel.model.Travel;
+import org.paumard.server.travel.model.WeatherAgency;
 
-import java.util.concurrent.Callable;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.Optional;
+import java.util.Random;
 import java.util.concurrent.StructuredTaskScope;
 import java.util.concurrent.StructuredTaskScope.Joiner;
-import java.util.concurrent.StructuredTaskScope.Subtask;
-import java.util.function.Predicate;
+
+import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toMap;
 
 public class C_TravelAgencyQuery {
 
-    public static ScopedValue<String> LICENCE_KEY = ScopedValue.newInstance();
+    private static final Random RANDOM = new Random();
 
-    void main() throws InterruptedException {
+    private static final ScopedValue<String> LICENCE_KEY = ScopedValue.newInstance();
 
-        var cities = Cities.read();
+    public static Optional<Travel> travelQuery(List<WeatherAgency> agencies, List<Company> companies, City from, City to) throws InterruptedException {
+        try (var scope = StructuredTaskScope.open(
+            Joiner.allUntil(subtask -> switch (subtask.state()) {
+                case UNAVAILABLE, FAILED -> false;
+                case SUCCESS -> subtask.get() instanceof Optional<?> optional &&
+                    optional.isPresent() &&
+                    optional.orElseThrow() instanceof CompanyFlightPrice;
+            }))) {
 
-        var atlanta = cities.byName("Atlanta");
-        var chicago = cities.byName("Chicago");
+            var weatherTask = scope.fork(() -> A_WeatherQuery.queryWeatherForecastFor(agencies, to));
+            var flightPriceTask = scope.fork(() -> B_CompanyQuery.queryFlightPrice(companies, from, to));
 
-        var phoenix = cities.byName("Phoenix");
-        var philadelphia = cities.byName("Philadelphia");
+            scope.join();
 
-        var travel =
-              ScopedValue.where(LICENCE_KEY, "Valid key")
-                    .call(() -> queryTravel(phoenix, philadelphia));
-
-        IO.println(travel);
+            return flightPriceTask.get()
+                .map(flightPrice ->
+                    new Travel(flightPrice.company(), flightPrice.flight(), flightPrice.price(), weatherTask.get()));
+        }
     }
 
-    public static Travel queryTravel(City from, City to) throws InterruptedException {
-        Callable<CompanyFlightPrice> companyFlightPriceTask =
-              () -> B_CompanyQuery.queryFlightPrice(from, to);
+    static void main() throws InterruptedException, IOException {
+        var cities = Parser.parse(Path.of("files", "us-cities.txt"), City::parseLine);
+        var cityByName = cities.stream().collect(toMap(City::name, identity()));
+        var agencies = Parser.parse(Path.of("files", "weather-agencies.txt"), WeatherAgency::parseLine);
+        var companies = Parser.parse(Path.of("files", "companies.txt"),
+            line -> Company.parseLine(line, cities, flightAvailabilityRate -> RANDOM.nextInt(0, 100) <= flightAvailabilityRate));
 
-        Callable<WeatherResponse> weatherResponseTask =
-              () -> A_WeatherQuery.queryWeatherForecastFor(to);
+        var atlanta = cityByName.get("Atlanta");
+        var chicago = cityByName.get("Chicago");
 
-        var predicate = new Predicate<Subtask<? extends TravelComponent>>() {
+        var phoenix = cityByName.get("Phoenix");
+        var philadelphia = cityByName.get("Philadelphia");
 
-            volatile WeatherResponse weatherResponse;
-            volatile CompanyFlightPrice companyFlightPrice;
-
-            public boolean test(Subtask<? extends TravelComponent> travelComponent) {
-                return switch (travelComponent.state()) {
-                    case UNAVAILABLE, FAILED -> throw new IllegalStateException("Ooops!");
-                    case SUCCESS -> {
-                        switch (travelComponent.get()) {
-                            case CompanyFlightPrice companyFlightPrice -> {
-                                this.companyFlightPrice = companyFlightPrice;
-                                yield true;
-                            }
-                            case WeatherResponse weatherResponse -> {
-                                this.weatherResponse = weatherResponse;
-                                yield false;
-                            }
-                        }
-                    }
-                };
-            }
-        };
-
-        try (var scope = StructuredTaskScope.open(
-              Joiner.allUntil(predicate)
-        )) {
-
-            scope.fork(companyFlightPriceTask);
-            scope.fork(weatherResponseTask);
-
-            var stream = scope.join();
-
-            var companyFlightPrice = predicate.companyFlightPrice;
-            var weatherResonse = predicate.weatherResponse;
-
-            if (weatherResonse instanceof WeatherResponse.Ok(Weather weather)) {
-                return new Travel.TravelWithWeather(
-                      companyFlightPrice.company(), companyFlightPrice.flight(), companyFlightPrice.price(),
-                      weather);
-            } else {
-                return new Travel.TravelNoWeather(
-                      companyFlightPrice.company(), companyFlightPrice.flight(), companyFlightPrice.price());
-            }
-        }
+        IO.println(travelQuery(agencies, companies, atlanta, chicago));
+        IO.println(travelQuery(agencies, companies, phoenix, philadelphia));
     }
 }
