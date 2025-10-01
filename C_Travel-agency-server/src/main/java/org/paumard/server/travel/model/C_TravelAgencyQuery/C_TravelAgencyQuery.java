@@ -7,6 +7,7 @@ import org.paumard.server.travel.model.Company;
 import org.paumard.server.travel.model.CompanyFlightPrice;
 import org.paumard.server.travel.model.Parser;
 import org.paumard.server.travel.model.Travel;
+import org.paumard.server.travel.model.Weather;
 import org.paumard.server.travel.model.WeatherAgency;
 
 import java.io.IOException;
@@ -16,6 +17,7 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.StructuredTaskScope;
 import java.util.concurrent.StructuredTaskScope.Joiner;
+import java.util.concurrent.StructuredTaskScope.Subtask.State;
 
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
@@ -40,9 +42,11 @@ public class C_TravelAgencyQuery {
 
             scope.join();
 
+            var weatherOpt =
+                weatherTask.state() == State.SUCCESS ? weatherTask.get() : Optional.<Weather>empty();
             return flightPriceTask.get()
                 .map(flightPrice ->
-                    new Travel(flightPrice.company(), flightPrice.flight(), flightPrice.price(), weatherTask.get()));
+                    new Travel(flightPrice.company().name(), flightPrice.flight(), flightPrice.price(), weatherOpt));
         }
     }
 
@@ -60,6 +64,6 @@ public class C_TravelAgencyQuery {
         var philadelphia = cityByName.get("Philadelphia");
 
         IO.println(travelQuery(agencies, companies, atlanta, chicago));
-        IO.println(travelQuery(agencies, companies, phoenix, philadelphia));
+        //IO.println(travelQuery(agencies, companies, phoenix, philadelphia));
     }
 }

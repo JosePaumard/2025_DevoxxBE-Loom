@@ -2,12 +2,10 @@ package org.paumard.server.company.model;
 
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Set;
 
-public final class FlightPricer {
-  private FlightPricer() {
+public final class FlightPricing {
+  private FlightPricing() {
   }
 
   public static OptionalInt price(Company company, Flight flight, Map<Flight.Direct, Integer> priceMap, int delta) {

@@ -8,7 +8,7 @@ import io.helidon.http.media.jsonp.JsonpSupport;
 import io.helidon.webserver.WebServer;
 import io.helidon.webserver.http.HttpRouting;
 import io.helidon.webserver.staticcontent.StaticContentFeature;
-import org.paumard.server.company.model.FlightPricer;
+import org.paumard.server.company.model.FlightPricing;
 import org.paumard.server.company.model.Parser;
 import org.paumard.server.company.model.City;
 import org.paumard.server.company.model.Company;
@@ -16,14 +16,13 @@ import org.paumard.server.company.model.Flight;
 import org.paumard.server.company.model.DirectFlightParser;
 
 import java.io.IOException;
-import java.net.InetAddress;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
-public class CompanyServer {
+public final class CompanyServer {
 
   private static final Random RANDOM = new Random(314L);
 
@@ -69,7 +68,7 @@ public class CompanyServer {
 
         {
           var flight = new Flight.Direct(request.from, request.to);
-          var price = FlightPricer.price(company, flight, priceMap, delta);
+          var price = FlightPricing.price(company, flight, priceMap, delta);
           if (price.isPresent()) {
             response.send(new FlightPrice(flight, price.orElseThrow()));
             return;
@@ -80,7 +79,7 @@ public class CompanyServer {
             .filter(city -> !city.equals(request.from) & !city.equals(request.to))
             .flatMap(via -> {
               var multileg = new Flight.Multileg(request.from, via, request.to);
-              var optPrice = FlightPricer.price(company, multileg, priceMap, delta);
+              var optPrice = FlightPricing.price(company, multileg, priceMap, delta);
               return optPrice.stream().mapToObj(price -> new FlightPrice(multileg, price));
             })
             .min(Comparator.comparingInt(FlightPrice::price));
@@ -117,7 +116,6 @@ public class CompanyServer {
     registerEachCompany(routingBuilder, companies, flightMap);
 
     var webServer = WebServer.builder()
-        .address(InetAddress.getLocalHost())
         .host(config.host())
         .port(config.port())
         .addFeature(

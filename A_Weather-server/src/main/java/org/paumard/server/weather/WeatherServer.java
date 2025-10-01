@@ -13,13 +13,12 @@ import org.paumard.server.weather.model.Weather;
 import org.paumard.server.weather.model.WeatherAgency;
 
 import java.io.IOException;
-import java.net.InetAddress;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Random;
 
-public class WeatherServer {
+public final class WeatherServer {
 
     private static final Random RANDOM = new Random();
 
@@ -78,8 +77,7 @@ public class WeatherServer {
         registerEachWeatherAgency(routingBuilder, agencies);
 
         var webServer = WebServer.builder()
-                .address(InetAddress.getLocalHost())
-                 .host(config.host())
+                .host(config.host())
                 .port(config.port())
                 .addFeature(
                         StaticContentFeature.builder()

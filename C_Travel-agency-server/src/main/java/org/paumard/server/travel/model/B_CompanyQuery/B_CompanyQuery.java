@@ -1,10 +1,7 @@
 package org.paumard.server.travel.model.B_CompanyQuery;
 
-
 import io.helidon.http.Status;
 import io.helidon.webclient.api.WebClient;
-import jakarta.json.Json;
-import jakarta.json.bind.Jsonb;
 import jakarta.json.bind.JsonbBuilder;
 import jakarta.json.bind.JsonbConfig;
 import org.paumard.server.travel.Client;
@@ -30,7 +27,7 @@ public class B_CompanyQuery {
 
     private static final Random RANDOM = new Random();
 
-    public record FlightPrice(Flight fligth, int price) {}
+    public record FlightPrice(Flight flight, int price) {}
 
     private static Optional<FlightPrice> companyQuery(Company company, City from, City to) throws IOException {
         try (var response = WebClient.builder()
@@ -39,18 +36,15 @@ public class B_CompanyQuery {
             .post("/company/" + company.tag())
             .submit(new Flight.Direct(from, to))) {
             if (response.status() == Status.OK_200) {
-                var jsonText = response.as(String.class);
-                IO.println(jsonText);
-
-                var config = new JsonbConfig()
-                    .withDeserializers(new FlightJsonDeserializer());
-
-                try(var jsonb = JsonbBuilder.create(config)) {
-                    var price = jsonb.fromJson(jsonText, FlightPrice.class);
-                    return Optional.of(price);
-                } catch (Exception e) {
-                  throw new IOException(e);
-                }
+              var jsonText = response.as(String.class);
+              var config = new JsonbConfig()
+                  .withDeserializers(new FlightJsonDeserializer());
+              try(var jsonBuilder = JsonbBuilder.create(config)) {
+                var price = jsonBuilder.fromJson(jsonText, FlightPrice.class);
+                return Optional.of(price);
+              } catch (Exception e) {
+                throw new IOException(e);
+              }
             }
             return Optional.empty();
         }
@@ -63,14 +57,18 @@ public class B_CompanyQuery {
             var subtasks = companies.stream()
                 .map(company -> scope.fork(() -> {
                     var flightPriceOpt = companyQuery(company, from, to);
-                    return flightPriceOpt.map(flightPrice -> new CompanyFlightPrice(company, flightPrice.fligth, flightPrice.price));
+                    return flightPriceOpt.map(flightPrice -> new CompanyFlightPrice(company, flightPrice.flight, flightPrice.price));
                 }))
                 .toList();
 
             scope.join();
 
             return subtasks.stream()
-                .filter(subtask -> subtask.state() == StructuredTaskScope.Subtask.State.SUCCESS)
+                .filter(subtask -> switch (subtask.state()) {
+                   case SUCCESS -> true;
+                   //case FAILED, UNAVAILABLE -> false;
+                   case FAILED, UNAVAILABLE -> throw new RuntimeException(subtask.exception());
+                 })
                 .flatMap(subtask -> subtask.get().stream())
                 .min(Comparator.comparing(CompanyFlightPrice::price));
         }

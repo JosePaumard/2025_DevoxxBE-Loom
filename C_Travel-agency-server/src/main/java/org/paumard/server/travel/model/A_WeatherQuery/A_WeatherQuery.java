@@ -43,10 +43,10 @@ public class A_WeatherQuery {
                 scope.fork(() -> weatherQuery(agency, city));
             }
 
-            scope.fork(() -> {
+            /*scope.fork(() -> {
                 Thread.sleep(10);
                 throw new RuntimeException("Failing query");
-            });
+            });*/
 
             return scope.join();
         }
