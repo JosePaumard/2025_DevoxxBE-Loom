@@ -38,7 +38,7 @@ public class C_TravelAgencyQuery {
             }))) {
 
             var weatherTask = scope.fork(() -> A_WeatherQuery.queryWeatherForecastFor(agencies, to));
-            var flightPriceTask = scope.fork(() -> B_CompanyQuery.queryFlightPrice(companies, from, to));
+            var flightPriceTask = scope.fork(() -> B_CompanyQuery.queryBestFlightPrice(companies, from, to));
 
             scope.join();
 

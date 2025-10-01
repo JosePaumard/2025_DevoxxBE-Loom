@@ -50,7 +50,7 @@ public class B_CompanyQuery {
         }
     }
 
-    public static Optional<CompanyFlightPrice> queryFlightPrice(List<Company> companies, City from, City to) throws InterruptedException {
+    public static Optional<CompanyFlightPrice> queryBestFlightPrice(List<Company> companies, City from, City to) throws InterruptedException {
         try (var scope = StructuredTaskScope.open(
             Joiner.<Optional<CompanyFlightPrice>>awaitAll())) {
 
@@ -90,7 +90,7 @@ public class B_CompanyQuery {
         var diamondAirlines = companies.get(4);
         var trustedCompanies = List.of(airPenguin,norwegianParrots,gammaAirlines, crustyAlbatros,diamondAirlines);
 
-        var companyFlightPriceOpt = queryFlightPrice(trustedCompanies, phoenix, philadelphia);
+        var companyFlightPriceOpt = queryBestFlightPrice(trustedCompanies, phoenix, philadelphia);
         IO.println(companyFlightPriceOpt);
     }
 }
