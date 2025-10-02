@@ -11,6 +11,7 @@ import org.paumard.server.travel.model.CompanyFlightPrice;
 import org.paumard.server.travel.model.Flight;
 import org.paumard.server.travel.model.Parser;
 import org.paumard.server.travel.model.util.FlightJsonDeserializer;
+import org.paumard.server.travel.model.util.Logger;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -32,6 +33,7 @@ public final class B_CompanyQuery {
   }
 
   private static Optional<FlightPrice> companyQuery(Company company, City from, City to) throws IOException {
+    Logger.logDebug(() -> "Company query " + company + " from " + from + " to " + to);
     try (var response = WebClient.builder()
         .baseUri(Client.getCompanyServerURI())
         .build()
@@ -59,7 +61,7 @@ public final class B_CompanyQuery {
       var subtasks = companies.stream()
           .map(company -> scope.fork(() -> {
             var flightPriceOpt = companyQuery(company, from, to);
-            return flightPriceOpt.map(flightPrice -> new CompanyFlightPrice(company, flightPrice.flight, flightPrice.price));
+            return flightPriceOpt.map(flightPrice -> new CompanyFlightPrice(company.name(), flightPrice.flight, flightPrice.price));
           }))
           .toList();
 
@@ -92,7 +94,7 @@ public final class B_CompanyQuery {
     var diamondAirlines = companies.get(4);
     var trustedCompanies = List.of(airPenguin, norwegianParrots, gammaAirlines, crustyAlbatros, diamondAirlines);
 
-    var companyFlightPriceOpt = queryBestFlightPrice(trustedCompanies, phoenix, philadelphia);
-    IO.println(companyFlightPriceOpt);
+    IO.println(queryBestFlightPrice(trustedCompanies, phoenix, philadelphia));
+    //IO.println(Logger.debugCall(() -> queryBestFlightPrice(trustedCompanies, phoenix, philadelphia)));
   }
 }

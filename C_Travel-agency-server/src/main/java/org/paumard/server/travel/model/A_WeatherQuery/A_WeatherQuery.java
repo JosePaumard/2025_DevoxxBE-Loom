@@ -7,6 +7,7 @@ import org.paumard.server.travel.model.Parser;
 import org.paumard.server.travel.model.Weather;
 import org.paumard.server.travel.model.WeatherAgency;
 import org.paumard.server.travel.Client;
+import org.paumard.server.travel.model.util.Logger;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -21,6 +22,7 @@ import static java.util.stream.Collectors.toMap;
 public final class A_WeatherQuery {
 
   private static Optional<Weather> weatherQuery(WeatherAgency agency, City city) {
+    Logger.logDebug(() -> "Weather query " + agency + " " + city);
     try (var response = WebClient.builder()
         .baseUri(Client.getWeatherServerURI())
         .build()
@@ -63,7 +65,7 @@ public final class A_WeatherQuery {
     var planetWeather = agencies.get(2);
     var trustedAgencies = List.of(globalWeather, starWeather, planetWeather);
 
-    var weatherOpt = queryWeatherForecastFor(trustedAgencies, city);
-    IO.println(weatherOpt.orElseThrow());
+    IO.println(queryWeatherForecastFor(trustedAgencies, city));
+    //IO.println(Logger.debugCall(() -> queryWeatherForecastFor(trustedAgencies, city)));
   }
 }

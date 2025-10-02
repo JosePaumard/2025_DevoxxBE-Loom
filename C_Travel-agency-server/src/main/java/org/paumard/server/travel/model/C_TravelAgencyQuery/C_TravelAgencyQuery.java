@@ -9,6 +9,7 @@ import org.paumard.server.travel.model.Parser;
 import org.paumard.server.travel.model.Travel;
 import org.paumard.server.travel.model.Weather;
 import org.paumard.server.travel.model.WeatherAgency;
+import org.paumard.server.travel.model.util.Logger;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -25,8 +26,6 @@ import static java.util.stream.Collectors.toMap;
 public final class C_TravelAgencyQuery {
 
   private static final Random RANDOM = new Random();
-
-  private static final ScopedValue<String> LICENCE_KEY = ScopedValue.newInstance();
 
   public static Optional<Travel> travelQuery(List<WeatherAgency> agencies, List<Company> companies, City from, City to) throws InterruptedException {
     try (var scope = StructuredTaskScope.open(
@@ -46,7 +45,7 @@ public final class C_TravelAgencyQuery {
           weatherTask.state() == State.SUCCESS ? weatherTask.get() : Optional.<Weather>empty();
       return flightPriceTask.get()
           .map(flightPrice ->
-              new Travel(flightPrice.company().name(), flightPrice.flight(), flightPrice.price(), weatherOpt));
+              new Travel(flightPrice.companyName(), flightPrice.flight(), flightPrice.price(), weatherOpt));
     }
   }
 
@@ -64,6 +63,6 @@ public final class C_TravelAgencyQuery {
     var philadelphia = cityByName.get("Philadelphia");
 
     IO.println(travelQuery(agencies, companies, atlanta, chicago));
-    //IO.println(travelQuery(agencies, companies, phoenix, philadelphia));
+    //IO.println(Logger.debugCall(() -> travelQuery(agencies, companies, phoenix, philadelphia)));
   }
 }
